@@ -139,18 +139,32 @@ macro_rules! println {
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
 
+
+//Print the given formatted string to the VGA buffer
 #[doc(hidden)] // export but it hide private implementation details
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap()
+    use x86_64::instructions::interrupts;
+
+    // Take a closure and execute it without interrupts
+    // Not interrupts can occure as long as our mutex is locked
+    interrupts::without_interrupts(|| { 
+        WRITER.lock().write_fmt(args).unwrap();
+    });
 }
 
 #[test_case]
 fn test_println_output() {
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
+
     let s = "is output working?";
-    println!("{}", s);
-    for (i, c) in s.chars().enumerate() {
-        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(char::from(screen_char.ascii_character), c);
-    }
+    interrupts::without_interrupts(|| { // Avpod deadlock
+        let mut writer = WRITER.lock(); // lock mutex for whole test
+        writeln!(writer, "\n{}", s).expect("writeln failed");
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(screen_char.ascii_character), c);
+        }
+    });
 }

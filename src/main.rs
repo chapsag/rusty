@@ -11,15 +11,15 @@ use rusty_os::println;
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     
-    println!("Hello Mr. Goffi, temperature outside is {}", -10);
+    println!(" > Hello Mr. Goffi, temperature outside is {}", -10);
 
     rusty_os::init();
 
     #[cfg(test)]
     test_main();
 
-
-    loop {}
+    println!(" > It did not crash");
+    rusty_os::hlt_loop();
 }
 
 
@@ -28,7 +28,7 @@ pub extern "C" fn _start() -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    loop {}
+    rusty_os::hlt_loop();
 }
 
 #[cfg(test)]
