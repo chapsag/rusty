@@ -6,6 +6,7 @@
 #![reexport_test_harness_main = "test_main"]
 
 pub fn init() {
+    gdt::init();
     interrupts::init_idt();
 }
 
@@ -77,3 +78,4 @@ pub fn shutdown(exit_code: QemuExitCode) {
 pub mod serial;
 pub mod vga_buffer;
 pub mod interrupts;
+pub mod gdt;

@@ -15,14 +15,9 @@ pub extern "C" fn _start() -> ! {
 
     rusty_os::init();
 
-    unsafe {
-        *(0xdeadbeef as *mut u64) = 42;
-    };
-
     #[cfg(test)]
     test_main();
 
-    println!("Not crash");
 
     loop {}
 }
