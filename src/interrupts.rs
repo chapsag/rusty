@@ -1,9 +1,8 @@
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 use pic8259::ChainedPics; // Represent Secondary and Primary PICs
 use spin::Mutex; // Spinlock
 use lazy_static::lazy_static;
-use crate::{println, print};
-use crate::gdt;
+use crate::{println, print, gdt, hlt_loop};
 
 
 // Pics:(Programmable interupt controller) are used to handle interrupts. Range from 32 to 47.
@@ -38,6 +37,7 @@ lazy_static! { // Use unsafe behind the scene.
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler); // Because of IndexMut can access with indexing syntax.
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
+        idt.page_fault.set_handler_fn(page_fault_handler);
         unsafe {
             idt.double_fault.set_handler_fn(double_fault_handler)
                 .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
@@ -59,6 +59,15 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFr
     unsafe {
         PICS.lock().notify_end_of_interrupt(InterruptIndex::Timer.as_u8()); // Send End of Interrupt signal to PICs
     }
+}
+
+extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode)  {
+    use x86_64::registers::control::Cr2;
+    println!("EXCEPTION: PAGE FAULT");
+    println!("Accessed Address: {:?}", Cr2::read()); // Read the address that caused the page fault
+    println!("Error Code: {:?}", _error_code);
+    println!("{:#?}", _stack_frame);
+    hlt_loop(); // Halt the CPU because of the page fault
 }
 
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame)  {
@@ -88,11 +97,9 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
         }
     }
 
-
     unsafe {
         PICS.lock().notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8()); // Send End of Interrupt signal to PICs
-    }
-    
+    }   
 }
 
 extern "x86-interrupt" fn double_fault_handler(

@@ -159,7 +159,7 @@ fn test_println_output() {
     use x86_64::instructions::interrupts;
 
     let s = "is output working?";
-    interrupts::without_interrupts(|| { // Avpod deadlock
+    interrupts::without_interrupts(|| { // Avoid deadlock
         let mut writer = WRITER.lock(); // lock mutex for whole test
         writeln!(writer, "\n{}", s).expect("writeln failed");
         for (i, c) in s.chars().enumerate() {
