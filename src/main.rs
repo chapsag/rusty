@@ -8,13 +8,14 @@ use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use rusty_os::println;
 extern crate alloc;
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec, vec::Vec, rc::Rc};
 
 entry_point!(kernel_main); // macro to define the entry point of the program to avoid arbritary args
 
 
 pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    use rusty_os::{memory, memory::BootInfoFrameAllocator};
+    use rusty_os::memory::{self, BootInfoFrameAllocator};
+    use rusty_os::allocator;
     use x86_64::{VirtAddr};
     
     println!(" > Booting rusty, welcome MR. GOFFI");
@@ -22,19 +23,35 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!(" > Kernel init done");
 
 
-
-    let physical_memory_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let mut mapper = unsafe { memory::init(physical_memory_offset) };
-    let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map)};    
     // crete missing page tables:
         // 1. Allocate unused frame from the passed frame_allocator
         // 2. Zero the frame to create a new, empty page table
         // 3. Map the entry  of the higher level table to that frame
         // 4. Contine with the next table level
+    let physical_memory_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let mut mapper = unsafe { memory::init(physical_memory_offset) };
+    let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map)};    
 
-    // map unused memory
 
-    let x = Box::new(42);
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+
+    // allocate a number on the heap
+    let heap_value = Box::new(41);
+    println!("heap_value at {:p}", heap_value);
+
+    // create a dynamically sized vector
+    let mut vec = Vec::new();
+    for i in 0..500 {
+        vec.push(i);
+    }
+    println!("vec at {:p}", vec.as_slice());
+
+    // create a reference counted vector -> will be freed when count reaches 0
+    let reference_counted = Rc::new(vec![1, 2, 3]);
+    let cloned_reference = reference_counted.clone();
+    println!("current reference count is {}", Rc::strong_count(&cloned_reference));
+    core::mem::drop(reference_counted);
+    println!("reference count is {} now", Rc::strong_count(&cloned_reference));
 
 
     
