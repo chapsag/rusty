@@ -7,13 +7,15 @@
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use rusty_os::println;
+extern crate alloc;
+use alloc::boxed::Box;
 
 entry_point!(kernel_main); // macro to define the entry point of the program to avoid arbritary args
 
 
 pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    use rusty_os::memory;
-    use x86_64::{structures::paging::Translate, VirtAddr};
+    use rusty_os::{memory, memory::BootInfoFrameAllocator};
+    use x86_64::{VirtAddr};
     
     println!(" > Booting rusty, welcome MR. GOFFI");
     rusty_os::init();
@@ -21,27 +23,19 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
 
 
-    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    // new: initialize a mapper
-    let mapper = unsafe { memory::init(phys_mem_offset) };
+    let physical_memory_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let mut mapper = unsafe { memory::init(physical_memory_offset) };
+    let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map)};    
+    // crete missing page tables:
+        // 1. Allocate unused frame from the passed frame_allocator
+        // 2. Zero the frame to create a new, empty page table
+        // 3. Map the entry  of the higher level table to that frame
+        // 4. Contine with the next table level
 
-    let addresses = [
-        // the identity-mapped vga buffer page
-        0xb8000,
-        // some code page
-        0x201008,
-        // some stack page
-        0x0100_0020_1a10,
-        // virtual address mapped to physical address 0
-        boot_info.physical_memory_offset,
-    ];
+    // map unused memory
 
+    let x = Box::new(42);
 
-    for &address in &addresses {
-        let virt = VirtAddr::new(address);
-        let phys = mapper.translate_addr(virt);
-        println!("{:?} -> {:?}", virt, phys);
-    }
 
     
     #[cfg(test)]
