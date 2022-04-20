@@ -61,8 +61,6 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     rusty_os::hlt_loop();
 }
 
-
-// This function is called on panic.
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
